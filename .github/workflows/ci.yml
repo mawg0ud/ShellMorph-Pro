@@ -1,0 +1,54 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust-version: [stable, nightly]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v2
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust-version }}
+
+      - name: Install Dependencies
+        run: |
+          rustup component add clippy rustfmt
+          cargo install cargo-audit
+
+      - name: Run Tests
+        run: cargo test --all --verbose
+
+      - name: Run Linter
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Format Check
+        run: cargo fmt --all -- --check
+
+      - name: Security Audit
+        run: cargo audit
+
+  artifacts:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: shellmorph-artifacts
+          path: target/
